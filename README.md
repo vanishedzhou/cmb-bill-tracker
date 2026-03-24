@@ -32,12 +32,23 @@
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
+### 2. 配置 `.env`
+
+复制示例文件并填入你的邮箱信息：
 
 ```bash
-export EMAIL_ADDRESS="your_email@163.com"
-export EMAIL_AUTH_CODE="your_163_auth_code"    # 163 邮箱授权码（非登录密码）
+cp .env.example .env
 ```
+
+编辑 `.env`：
+
+```ini
+EMAIL_ADDRESS=your_email@163.com
+EMAIL_AUTH_CODE=your_163_auth_code    # 163 邮箱授权码（非登录密码）
+SECRET_KEY=your-random-secret-key
+```
+
+> `.env` 已被 `.gitignore` 忽略，不会提交到 git。打包部署时 `build.sh` 会自动将其包含在内。
 
 ### 3. 启动
 
@@ -94,7 +105,10 @@ docker run -d \
 ```
 cmb-bill-tracker/
 ├── app.py                  # Flask 应用入口 + 定时任务
-├── config.py               # 环境变量配置
+├── config.py               # 配置（自动加载 .env）
+├── .env                    # 敏感配置（git 忽略，打包时包含）
+├── .env.example            # .env 示例文件
+├── .gitignore
 ├── models/
 │   └── database.py         # 数据库初始化与连接
 ├── services/
