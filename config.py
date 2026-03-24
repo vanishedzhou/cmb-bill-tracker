@@ -16,6 +16,15 @@ EMAIL_AUTH_CODE = os.environ.get("EMAIL_AUTH_CODE", "LRnHDJWR3UuhVwuJ")  # 授�
 SECRET_KEY = os.environ.get("SECRET_KEY", "cmb-bill-tracker-secret-key")
 DEBUG = os.environ.get("DEBUG", "false").lower() in ("true", "1")
 
-# Scheduler
-DAILY_FETCH_HOUR = int(os.environ.get("DAILY_FETCH_HOUR", 9))
-DAILY_FETCH_MINUTE = int(os.environ.get("DAILY_FETCH_MINUTE", 0))
+# Scheduler — supports multiple fetch times, e.g. "9:00,14:00"
+_FETCH_TIMES_STR = os.environ.get("DAILY_FETCH_TIMES", "9:00,14:00")
+DAILY_FETCH_TIMES = []
+for _t in _FETCH_TIMES_STR.split(","):
+    _t = _t.strip()
+    if ":" in _t:
+        _h, _m = _t.split(":", 1)
+        DAILY_FETCH_TIMES.append((int(_h), int(_m)))
+
+# Legacy single-time config (kept for backward compat)
+DAILY_FETCH_HOUR = DAILY_FETCH_TIMES[0][0] if DAILY_FETCH_TIMES else 9
+DAILY_FETCH_MINUTE = DAILY_FETCH_TIMES[0][1] if DAILY_FETCH_TIMES else 0

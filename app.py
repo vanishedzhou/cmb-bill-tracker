@@ -71,15 +71,16 @@ def _start_scheduler(app):
                 print(f"[Scheduler] Daily fetch failed: {e}")
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(
-        daily_job,
-        "cron",
-        hour=config.DAILY_FETCH_HOUR,
-        minute=config.DAILY_FETCH_MINUTE,
-        id="daily_fetch",
-    )
+    for idx, (hour, minute) in enumerate(config.DAILY_FETCH_TIMES):
+        scheduler.add_job(
+            daily_job,
+            "cron",
+            hour=hour,
+            minute=minute,
+            id=f"daily_fetch_{idx}",
+        )
+        print(f"[Scheduler] Daily fetch scheduled at {hour:02d}:{minute:02d}")
     scheduler.start()
-    print(f"[Scheduler] Daily fetch scheduled at {config.DAILY_FETCH_HOUR:02d}:{config.DAILY_FETCH_MINUTE:02d}")
     return scheduler
 
 
