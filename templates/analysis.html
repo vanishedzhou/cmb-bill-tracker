@@ -20,6 +20,11 @@
         </select>
     </div>
     <button class="btn btn-primary" id="applyFilter">查询</button>
+    <div class="filter-total" id="totalAmount" style="display:none;">
+        <span class="filter-total-label">总消费</span>
+        <span class="filter-total-value" id="totalAmountValue">¥0.00</span>
+        <span class="filter-total-count" id="totalAmountCount"></span>
+    </div>
 </div>
 
 <div class="chart-row">
@@ -41,6 +46,14 @@
     <h3>月度趋势</h3>
     <div class="chart-container chart-wide">
         <canvas id="monthlyTrendChart"></canvas>
+    </div>
+</div>
+
+<div class="card" id="top20Card" style="display:none;">
+    <h3>Top 20 消费</h3>
+    <div class="top10-grid">
+        <div class="top10-list" id="top20Left"></div>
+        <div class="top10-list" id="top20Right"></div>
     </div>
 </div>
 

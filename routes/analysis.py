@@ -96,6 +96,7 @@ def transaction_list():
     search = request.args.get("search", "")
     page = int(request.args.get("page", 1))
     per_page = int(request.args.get("per_page", 20))
+    sort = request.args.get("sort", "date")  # "date" or "amount"
 
     try:
         conditions = ["trans_date >= ?", "trans_date <= ?"]
@@ -119,12 +120,13 @@ def transaction_list():
         ).fetchone()["cnt"]
 
         # Paginated results
+        order_clause = "amount DESC, trans_date DESC" if sort == "amount" else "trans_date DESC, id DESC"
         offset = (page - 1) * per_page
         rows = db.execute(
             f"""SELECT id, card_last4, trans_date, post_date, amount, merchant, category, bill_type, refunded, refund_date
                 FROM transactions
-                WHERE {where}
-                ORDER BY trans_date DESC, id DESC
+                WHERE {where} AND refunded = 0
+                ORDER BY {order_clause}
                 LIMIT ? OFFSET ?""",
             params + [per_page, offset],
         ).fetchall()

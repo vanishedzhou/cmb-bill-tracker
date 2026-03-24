@@ -55,6 +55,7 @@ async function applyFilters() {
     await Promise.all([
         loadCategoryData(f),
         loadMonthlyTrend(f),
+        loadTop20(f),
     ]);
     currentPage = 1;
     loadTransactions();
@@ -68,6 +69,7 @@ async function loadCategoryData(filters) {
         renderPieChart(json.data);
         renderBarChart(json.data);
         updateCategoryFilter(json.data);
+        updateTotalAmount(json.data);
     } catch (e) {
         console.error('Category load error:', e);
     }
@@ -258,6 +260,73 @@ function updateCategoryFilter(data) {
         sel.appendChild(opt);
     }
     sel.value = current;
+}
+
+function updateTotalAmount(data) {
+    const total = data.reduce((s, d) => s + d.total, 0);
+    const count = data.reduce((s, d) => s + d.count, 0);
+    const el = document.getElementById('totalAmount');
+    document.getElementById('totalAmountValue').textContent = `¥${total.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+    document.getElementById('totalAmountCount').textContent = `${count} 笔`;
+    el.style.display = 'flex';
+}
+
+async function loadTop20(filters) {
+    try {
+        const params = new URLSearchParams({
+            ...filters,
+            sort: 'amount',
+            page: 1,
+            per_page: 20,
+        });
+        const res = await fetch(`${P}/api/analysis/transactions?${params}`);
+        const json = await res.json();
+        renderTop20(json.data || []);
+    } catch (e) {
+        console.error('Top20 load error:', e);
+    }
+}
+
+function renderTop20(items) {
+    const card = document.getElementById('top20Card');
+    const leftList = document.getElementById('top20Left');
+    const rightList = document.getElementById('top20Right');
+    if (!items.length) {
+        card.style.display = 'none';
+        return;
+    }
+    const maxAmount = items[0].amount;
+    const barColors = [
+        '#e74c3c', '#e67e22', '#f39c12', '#27ae60', '#4a90d9',
+        '#9b59b6', '#1abc9c', '#2c3e50', '#d35400', '#16a085',
+        '#c0392b', '#8e44ad', '#2980b9', '#f1c40f'
+    ];
+    const renderItem = (t, i) => {
+        const pct = maxAmount > 0 ? (t.amount / maxAmount * 100).toFixed(1) : 0;
+        const color = barColors[i % barColors.length];
+        return `
+        <div class="top10-item">
+            <div class="top10-rank">${i + 1}</div>
+            <div class="top10-info">
+                <div class="top10-header">
+                    <span class="top10-merchant" title="${t.merchant}">${t.merchant}</span>
+                    <span class="top10-amount">¥${Number(t.amount).toLocaleString('zh-CN', {minimumFractionDigits: 2})}</span>
+                </div>
+                <div class="top10-bar-bg">
+                    <div class="top10-bar" style="width:${pct}%;background:${color};"></div>
+                </div>
+                <div class="top10-meta">
+                    <span class="top10-date">${t.trans_date}</span>
+                    <span class="badge badge-info" style="font-size:10px;">${t.category}</span>
+                    <span class="top10-date">尾号${t.card_last4}</span>
+                </div>
+            </div>
+        </div>`;
+    };
+    const half = Math.ceil(items.length / 2);
+    leftList.innerHTML = items.slice(0, half).map((t, i) => renderItem(t, i)).join('');
+    rightList.innerHTML = items.slice(half).map((t, i) => renderItem(t, i + half)).join('');
+    card.style.display = '';
 }
 
 async function loadTransactions() {
