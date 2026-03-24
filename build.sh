@@ -22,6 +22,12 @@ mkdir -p "$DIST_DIR"
 cp app.py config.py init_db.py requirements.txt restart.sh deploy.sh Dockerfile .dockerignore "$DIST_DIR/"
 cp -r models services routes templates static "$DIST_DIR/"
 
+# Include .env if present (contains secrets, excluded from git)
+if [ -f .env ]; then
+    cp .env "$DIST_DIR/"
+    echo "Included .env (secrets)"
+fi
+
 # Ensure scripts are executable
 chmod +x "$DIST_DIR/restart.sh" "$DIST_DIR/deploy.sh"
 

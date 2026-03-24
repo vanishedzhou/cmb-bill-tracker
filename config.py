@@ -3,14 +3,24 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# Load .env file if present (no extra dependency needed)
+_env_path = os.path.join(BASE_DIR, ".env")
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _key, _val = _line.split("=", 1)
+                os.environ.setdefault(_key.strip(), _val.strip())
+
 # Database — can be overridden by env var for Docker volume mount
 DATABASE_PATH = os.environ.get("DATABASE_PATH", os.path.join(BASE_DIR, "cmb_bills.db"))
 
 # IMAP settings for 163 mail
 IMAP_HOST = os.environ.get("IMAP_HOST", "imap.163.com")
 IMAP_PORT = int(os.environ.get("IMAP_PORT", 993))
-EMAIL_ADDRESS = os.environ.get("EMAIL_ADDRESS", "zhouzhiyong93@163.com")
-EMAIL_AUTH_CODE = os.environ.get("EMAIL_AUTH_CODE", "LRnHDJWR3UuhVwuJ")  # 授权码
+EMAIL_ADDRESS = os.environ.get("EMAIL_ADDRESS", "")
+EMAIL_AUTH_CODE = os.environ.get("EMAIL_AUTH_CODE", "")
 
 # Flask
 SECRET_KEY = os.environ.get("SECRET_KEY", "cmb-bill-tracker-secret-key")
