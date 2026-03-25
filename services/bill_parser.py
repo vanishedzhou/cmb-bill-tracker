@@ -138,49 +138,138 @@ def _parse_daily_digest(body_html):
 def _parse_monthly_statement(body_html):
     """Parse CMB monthly statement email.
 
-    Monthly statements use HTML tables with structured columns.
+    CMB monthly statements use deeply nested HTML tables. Transaction data
+    appears in leaf-level td cells (tds with no nested td children) in
+    sequential groups:
+      - 7-field: MMDD, MMDD, merchant, ¥amount, card_last4, currency, signed_amount
+      - 5-field (还款 etc): MMDD, merchant, ¥amount, card_last4, signed_amount
+    Section headers like 还款/退款/消费 appear as standalone leaf tds.
     """
     soup = BeautifulSoup(body_html, "lxml")
+
+    # Extract billing period to determine the year for MMDD dates
+    bill_year = None
+    period_pat = re.compile(r"(\d{4})/\d{2}/\d{2}-(\d{4})/\d{2}/\d{2}")
+
+    # Collect leaf tds (no nested td children)
+    leaf_texts = []
+    for td in soup.find_all("td"):
+        if td.find("td"):
+            continue
+        text = td.get_text(strip=True).replace("\xa0", " ").strip()
+        if text:
+            leaf_texts.append(text)
+            if bill_year is None:
+                m = period_pat.search(text)
+                if m:
+                    bill_year = int(m.group(2))  # end-of-period year
+
+    if bill_year is None:
+        # Fallback: try to find year from any date-like text
+        for t in leaf_texts[:30]:
+            m = re.search(r"(\d{4})/\d{2}/\d{2}", t)
+            if m:
+                bill_year = int(m.group(1))
+                break
+        if bill_year is None:
+            bill_year = datetime.now().year
+
+    # Patterns for field matching
+    mmdd_pat = re.compile(r"^\d{4}$")
+    yen_pat = re.compile(r"^¥\s*[-\d,.]+$")
+    card_pat = re.compile(r"^\d{4}$")
+    signed_pat = re.compile(r"^-?[\d,.]+\.\d{2}$")
+
+    section_names = {"还款", "退款", "消费", "预借现金", "利息", "费用", "分期"}
+    # Sections to skip entirely (repayments, interest, fees are not purchases)
+    skip_sections = {"还款", "利息", "费用"}
+    section = "消费"
     transactions = []
-    text = soup.get_text()
-    card_matches = re.findall(r"尾号(\d{4})", text)
 
-    tables = soup.find_all("table")
-    for table in tables:
-        rows = table.find_all("tr")
-        if len(rows) < 2:
+    i = 0
+    while i < len(leaf_texts):
+        t = leaf_texts[i]
+
+        # Section headers
+        if t in section_names:
+            section = t
+            i += 1
             continue
 
-        header_row = rows[0]
-        headers = [td.get_text(strip=True) for td in header_row.find_all(["td", "th"])]
-        header_text = " ".join(headers)
+        # 7-field: MMDD, MMDD, merchant, ¥amount, card_last4, currency, signed_amount
+        if (i + 6 < len(leaf_texts)
+                and mmdd_pat.match(t)
+                and mmdd_pat.match(leaf_texts[i + 1])
+                and yen_pat.match(leaf_texts[i + 3])
+                and card_pat.match(leaf_texts[i + 4])
+                and signed_pat.match(leaf_texts[i + 6])):
 
-        if not any(kw in header_text for kw in ["交易日", "记账日", "交易说明", "摘要", "金额"]):
+            if section not in skip_sections:
+                trans_mmdd = t
+                post_mmdd = leaf_texts[i + 1]
+                merchant = leaf_texts[i + 2]
+                card_last4 = leaf_texts[i + 4]
+                signed_amount = float(leaf_texts[i + 6].replace(",", ""))
+
+                trans_date = _mmdd_to_date(trans_mmdd, bill_year)
+                post_date = _mmdd_to_date(post_mmdd, bill_year)
+
+                is_refund = section == "退款"
+                transactions.append({
+                    "card_last4": card_last4,
+                    "trans_date": trans_date,
+                    "post_date": post_date,
+                    "amount": abs(signed_amount),
+                    "currency": "CNY",
+                    "merchant": merchant,
+                    "trans_type": section,
+                    "is_refund": is_refund,
+                    "bill_type": "monthly",
+                })
+            i += 7
             continue
 
-        col_map = _map_columns(headers)
-        if not col_map:
+        # 5-field (还款 etc): MMDD, merchant, ¥amount, card_last4, signed_amount
+        if (i + 4 < len(leaf_texts)
+                and mmdd_pat.match(t)
+                and not mmdd_pat.match(leaf_texts[i + 1])
+                and yen_pat.match(leaf_texts[i + 2])
+                and card_pat.match(leaf_texts[i + 3])
+                and signed_pat.match(leaf_texts[i + 4])):
+
+            if section not in skip_sections:
+                trans_mmdd = t
+                merchant = leaf_texts[i + 1]
+                card_last4 = leaf_texts[i + 3]
+                signed_amount = float(leaf_texts[i + 4].replace(",", ""))
+
+                trans_date = _mmdd_to_date(trans_mmdd, bill_year)
+
+                is_refund = section == "退款"
+                transactions.append({
+                    "card_last4": card_last4,
+                    "trans_date": trans_date,
+                    "post_date": trans_date,
+                    "amount": abs(signed_amount),
+                    "currency": "CNY",
+                    "merchant": merchant,
+                    "trans_type": section,
+                    "is_refund": is_refund,
+                    "bill_type": "monthly",
+                })
+            i += 5
             continue
 
-        current_card = card_matches[0] if card_matches else "0000"
+        i += 1
 
-        for row in rows[1:]:
-            cells = row.find_all(["td", "th"])
-            cell_texts = [c.get_text(strip=True) for c in cells]
-            if len(cell_texts) < max(col_map.values()) + 1:
-                continue
+    # Deduplicate: nested tables cause each transaction to appear ~2-3 times
+    unique = {}
+    for t in transactions:
+        key = (t["card_last4"], t["trans_date"], t["amount"], t["merchant"])
+        if key not in unique:
+            unique[key] = t
 
-            row_text = " ".join(cell_texts)
-            card_in_row = re.search(r"尾号(\d{4})", row_text)
-            if card_in_row:
-                current_card = card_in_row.group(1)
-                continue
-
-            trans = _extract_row(cell_texts, col_map, current_card)
-            if trans:
-                transactions.append(trans)
-
-    return transactions
+    return list(unique.values())
 
 
 def _map_columns(headers):
@@ -238,6 +327,16 @@ def _extract_row(cells, col_map, current_card):
         }
     except (IndexError, ValueError):
         return None
+
+
+def _mmdd_to_date(mmdd, year):
+    """Convert 4-digit MMDD string to YYYY-MM-DD using the given year."""
+    try:
+        month = int(mmdd[:2])
+        day = int(mmdd[2:])
+        return f"{year}-{month:02d}-{day:02d}"
+    except (ValueError, IndexError):
+        return f"{year}-01-01"
 
 
 def _normalize_date(date_str):
