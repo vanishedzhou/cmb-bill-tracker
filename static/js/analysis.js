@@ -247,6 +247,93 @@ function renderTrendChart(data) {
             }
         }
     });
+
+    renderMonthlyTable(data);
+}
+
+function renderMonthlyTable(data) {
+    const cards = Object.keys(data.trend);
+    const months = data.months;
+    const hasMultiCards = cards.length > 1;
+
+    if (!months.length) {
+        document.getElementById('monthlyTableWrapper').style.display = 'none';
+        document.getElementById('monthlyAvgBar').style.display = 'none';
+        return;
+    }
+
+    const fmt = v => '¥' + v.toLocaleString('zh-CN', { minimumFractionDigits: 2 });
+
+    // Compute totals per month and per card
+    const cardTotals = {};
+    const monthTotals = {};
+    let grandTotal = 0;
+    for (const card of cards) {
+        cardTotals[card] = 0;
+        for (const m of months) {
+            const val = (data.trend[card][m] || {}).total || 0;
+            cardTotals[card] += val;
+            monthTotals[m] = (monthTotals[m] || 0) + val;
+            grandTotal += val;
+        }
+    }
+    const monthCount = months.length;
+    const overallAvg = monthCount > 0 ? grandTotal / monthCount : 0;
+
+    // Render average bar
+    const avgBar = document.getElementById('monthlyAvgBar');
+    let avgHtml = `<div class="monthly-avg-item"><span class="avg-label">月均消费</span><span class="avg-value total">${fmt(overallAvg)}</span></div>`;
+    avgHtml += `<div class="monthly-avg-item"><span class="avg-label">统计月数</span><span class="avg-value">${monthCount} 个月</span></div>`;
+    avgHtml += `<div class="monthly-avg-item"><span class="avg-label">总消费</span><span class="avg-value total">${fmt(grandTotal)}</span></div>`;
+    if (hasMultiCards) {
+        avgHtml += `<div class="monthly-avg-divider"></div>`;
+        for (const card of cards) {
+            const avg = monthCount > 0 ? cardTotals[card] / monthCount : 0;
+            avgHtml += `<div class="monthly-avg-item"><span class="avg-label">卡${card} 月均</span><span class="avg-value">${fmt(avg)}</span></div>`;
+        }
+    }
+    avgBar.innerHTML = avgHtml;
+    avgBar.style.display = 'flex';
+
+    // Render table
+    const table = document.getElementById('monthlyDetailTable');
+    let html = '<thead><tr><th>月份</th>';
+    if (hasMultiCards) {
+        for (const card of cards) html += `<th>卡 ${card}</th>`;
+    }
+    html += `<th class="${hasMultiCards ? 'col-divider' : ''}">合计</th><th>笔数</th></tr></thead><tbody>`;
+
+    for (const m of months) {
+        html += `<tr><td>${m}</td>`;
+        if (hasMultiCards) {
+            for (const card of cards) {
+                const val = (data.trend[card][m] || {}).total || 0;
+                html += `<td>${fmt(val)}</td>`;
+            }
+        }
+        // Total for the month
+        html += `<td class="${hasMultiCards ? 'col-divider' : ''}" style="font-weight:600;color:#e74c3c;">${fmt(monthTotals[m] || 0)}</td>`;
+        // Transaction count
+        let countSum = 0;
+        for (const card of cards) {
+            countSum += (data.trend[card][m] || {}).count || 0;
+        }
+        html += `<td>${countSum} 笔</td></tr>`;
+    }
+
+    // Average row
+    html += '<tr class="avg-row"><td>月均</td>';
+    if (hasMultiCards) {
+        for (const card of cards) {
+            const avg = monthCount > 0 ? cardTotals[card] / monthCount : 0;
+            html += `<td>${fmt(avg)}</td>`;
+        }
+    }
+    html += `<td class="${hasMultiCards ? 'col-divider' : ''}">${fmt(overallAvg)}</td><td>-</td></tr>`;
+
+    html += '</tbody>';
+    table.innerHTML = html;
+    document.getElementById('monthlyTableWrapper').style.display = '';
 }
 
 function updateCategoryFilter(data) {

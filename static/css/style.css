@@ -256,6 +256,94 @@ tbody tr:hover { background: #f8f9ff; }
 .chart-container { position: relative; height: 280px; }
 .chart-container.chart-wide { height: 300px; }
 
+/* === Monthly Trend Detail Table === */
+.monthly-avg-bar {
+    display: flex;
+    gap: 20px;
+    padding: 14px 0;
+    margin-top: 10px;
+    border-top: 1px solid #f0f0f0;
+    align-items: center;
+}
+.monthly-avg-divider {
+    width: 1px;
+    align-self: stretch;
+    background: #d0d0d0;
+    margin: 0 4px;
+}
+.monthly-avg-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f8f9fb;
+    border-radius: 8px;
+}
+.monthly-avg-item .avg-label {
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+}
+.monthly-avg-item .avg-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #4a90d9;
+    white-space: nowrap;
+}
+.monthly-avg-item .avg-value.total {
+    color: #e74c3c;
+}
+.monthly-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 10px;
+}
+.monthly-detail-table thead th {
+    background: #fafafa;
+    padding: 8px 12px;
+    text-align: right;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 2px solid #eee;
+    white-space: nowrap;
+}
+.monthly-detail-table thead th:first-child {
+    text-align: left;
+}
+.monthly-detail-table tbody td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.monthly-detail-table tbody td:first-child {
+    text-align: left;
+    font-weight: 500;
+    color: #555;
+}
+.monthly-detail-table tbody tr:hover { background: #f8f9ff; }
+.monthly-detail-table tbody tr.avg-row {
+    background: #f0f7ff;
+    font-weight: 600;
+}
+.monthly-detail-table tbody tr.avg-row td {
+    border-top: 2px solid #4a90d9;
+    color: #4a90d9;
+}
+.monthly-detail-table tbody tr.total-row {
+    font-weight: 600;
+}
+.monthly-detail-table tbody tr.total-row td {
+    border-top: 2px solid #e0e0e0;
+    color: #333;
+}
+.monthly-detail-table th.col-divider,
+.monthly-detail-table td.col-divider {
+    border-left: 2px solid #e0e0e0;
+    padding-left: 14px;
+}
+
 /* === Progress === */
 .progress-bar-container {
     height: 22px;
@@ -344,4 +432,5 @@ tbody tr:hover { background: #f8f9ff; }
     .content { margin-left: 60px; }
     .chart-row { grid-template-columns: 1fr; }
     .summary-cards { grid-template-columns: 1fr; }
+    .monthly-avg-bar { flex-wrap: wrap; }
 }
