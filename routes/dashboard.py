@@ -16,7 +16,7 @@ def dashboard_data():
     today = datetime.now()
     year_start = f"{today.year}-01-01"
     month_start = f"{today.year}-{today.month:02d}-01"
-    yesterday = today.strftime("%Y-%m-%d")
+    today_str = today.strftime("%Y-%m-%d")
 
     try:
         # Monthly totals by card
@@ -27,7 +27,7 @@ def dashboard_data():
                FROM transactions
                WHERE trans_date >= ? AND trans_date <= ? AND refunded = 0
                GROUP BY card_last4""",
-            (month_start, yesterday),
+            (month_start, today_str),
         ).fetchall()
 
         monthly_data = {row["card_last4"]: {"count": row["count"], "total": row["total"]} for row in monthly}
@@ -42,7 +42,7 @@ def dashboard_data():
                FROM transactions
                WHERE trans_date >= ? AND trans_date <= ? AND refunded = 0
                GROUP BY card_last4""",
-            (year_start, yesterday),
+            (year_start, today_str),
         ).fetchall()
 
         yearly_data = {row["card_last4"]: {"count": row["count"], "total": row["total"]} for row in yearly}
@@ -88,7 +88,7 @@ def dashboard_data():
                    WHERE card_last4 = ? AND trans_date >= ? AND trans_date <= ? AND refunded = 0
                    ORDER BY amount DESC
                    LIMIT 10""",
-                (card, month_start, yesterday),
+                (card, month_start, today_str),
             ).fetchall()
             top10_monthly[card] = [
                 {"trans_date": r["trans_date"], "amount": r["amount"], "merchant": r["merchant"], "category": r["category"]}
@@ -104,7 +104,7 @@ def dashboard_data():
                    WHERE card_last4 = ? AND trans_date >= ? AND trans_date <= ? AND refunded = 0
                    ORDER BY amount DESC
                    LIMIT 10""",
-                (card, year_start, yesterday),
+                (card, year_start, today_str),
             ).fetchall()
             top10_yearly[card] = [
                 {"trans_date": r["trans_date"], "amount": r["amount"], "merchant": r["merchant"], "category": r["category"]}
