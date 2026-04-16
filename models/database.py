@@ -76,6 +76,23 @@ def init_db():
             category TEXT NOT NULL,
             priority INTEGER DEFAULT 0
         );
+
+        CREATE TABLE IF NOT EXISTS portfolio_holdings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL DEFAULT '',
+            sub_category TEXT DEFAULT '',
+            item_name TEXT NOT NULL DEFAULT '',
+            shares REAL,
+            current_price REAL,
+            exchange_rate REAL,
+            cost_price REAL,
+            profit_loss REAL,
+            market_value REAL,
+            position_pct REAL,
+            category_pct REAL,
+            created_at TEXT DEFAULT (datetime('now', 'localtime')),
+            updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        );
     """)
 
     # Insert default category rules if empty

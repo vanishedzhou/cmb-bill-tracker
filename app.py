@@ -29,10 +29,12 @@ def create_app():
     from routes.dashboard import bp as dashboard_bp
     from routes.analysis import bp as analysis_bp
     from routes.data_mgmt import bp as data_mgmt_bp
+    from routes.portfolio import bp as portfolio_bp
 
     app.register_blueprint(dashboard_bp, url_prefix=URL_PREFIX)
     app.register_blueprint(analysis_bp, url_prefix=URL_PREFIX)
     app.register_blueprint(data_mgmt_bp, url_prefix=URL_PREFIX)
+    app.register_blueprint(portfolio_bp, url_prefix=URL_PREFIX)
 
     # Page routes
     @app.route(URL_PREFIX + "/")
@@ -46,6 +48,10 @@ def create_app():
     @app.route(URL_PREFIX + "/data")
     def data_page():
         return render_template("data_mgmt.html", active_page="data", prefix=URL_PREFIX)
+
+    @app.route(URL_PREFIX + "/portfolio")
+    def portfolio_page():
+        return render_template("portfolio.html", active_page="portfolio", prefix=URL_PREFIX)
 
     # Start scheduler once (avoid duplicates in gunicorn preload / multi-worker)
     global _scheduler
@@ -87,4 +93,4 @@ def _start_scheduler(app):
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=config.DEBUG, port=5002, use_reloader=False)
+    app.run(host="0.0.0.0", debug=config.DEBUG, port=5002, use_reloader=False)
