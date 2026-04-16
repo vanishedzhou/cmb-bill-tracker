@@ -89,6 +89,11 @@ const Portfolio = (() => {
                 h.profit_loss = Math.round(h.shares * (h.current_price - h.cost_price) * h.exchange_rate * 100) / 100;
             }
         });
+        // Auto-compute position_pct from market_value
+        const total = holdings.reduce((s, h) => s + (h.market_value || 0), 0);
+        holdings.forEach(h => {
+            h.position_pct = total > 0 ? Math.round((h.market_value || 0) / total * 10000) / 100 : 0;
+        });
     }
 
     function recalcCategoryPct() {
@@ -150,7 +155,9 @@ const Portfolio = (() => {
             const canCalc = h.shares != null && h.current_price != null && h.exchange_rate != null;
             html += plCell(h.profit_loss, "profit_loss", canCalc && h.cost_price != null);
             html += numCell(h.market_value, "market_value", canCalc);
-            html += pctCell(h.position_pct, "position_pct");
+            // position_pct: auto-computed from market_value / total
+            const posPct = h.position_pct != null ? h.position_pct + '%' : '';
+            html += `<td class="col-num cell-computed">${posPct}</td>`;
 
             // Category pct (read-only, computed)
             if (isNewCat) {
@@ -207,7 +214,7 @@ const Portfolio = (() => {
         let val = input.value.trim();
 
         // For numeric fields, parse as number
-        const numFields = ["shares", "current_price", "exchange_rate", "cost_price", "profit_loss", "market_value", "position_pct", "category_pct"];
+        const numFields = ["shares", "current_price", "exchange_rate", "cost_price", "profit_loss", "market_value", "category_pct"];
         if (numFields.includes(field)) {
             val = val === "" ? null : parseFloat(val);
             if (val !== null && isNaN(val)) val = null;
@@ -286,7 +293,7 @@ const Portfolio = (() => {
     function syncFromDOM() {
         const tbody = document.getElementById("portfolioBody");
         const rows = tbody.querySelectorAll("tr[data-idx]");
-        const numFields = ["shares", "current_price", "exchange_rate", "cost_price", "profit_loss", "market_value", "position_pct"];
+        const numFields = ["shares", "current_price", "exchange_rate", "cost_price", "profit_loss", "market_value"];
 
         rows.forEach(tr => {
             const idx = parseInt(tr.dataset.idx);
