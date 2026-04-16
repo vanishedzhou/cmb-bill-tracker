@@ -55,6 +55,7 @@ const Portfolio = (() => {
                     // First time: load defaults
                     holdings = DEFAULT_HOLDINGS.map((h, i) => ({ ...h, id: -(i + 1) }));
                 }
+                recalcComputed();
                 recalcCategoryPct();
                 render();
                 renderSummary();
@@ -62,11 +63,31 @@ const Portfolio = (() => {
             })
             .catch(() => {
                 holdings = DEFAULT_HOLDINGS.map((h, i) => ({ ...h, id: -(i + 1) }));
+                recalcComputed();
                 recalcCategoryPct();
                 render();
                 renderSummary();
                 renderPieChart();
             });
+    }
+
+    /**
+     * Auto-compute profit_loss and market_value for rows that have
+     * shares, current_price, and exchange_rate filled in.
+     * Formula: market_value = shares * current_price * exchange_rate / 10000 (unit: 万)
+     *          profit_loss  = shares * (current_price - cost_price) * exchange_rate
+     */
+    function recalcComputed() {
+        holdings.forEach(h => {
+            const canCalcMV = h.shares != null && h.current_price != null && h.exchange_rate != null;
+            if (canCalcMV) {
+                h.market_value = Math.round(h.shares * h.current_price * h.exchange_rate / 10000 * 100) / 100;
+            }
+            const canCalcPL = canCalcMV && h.cost_price != null;
+            if (canCalcPL) {
+                h.profit_loss = Math.round(h.shares * (h.current_price - h.cost_price) * h.exchange_rate * 100) / 100;
+            }
+        });
     }
 
     function recalcCategoryPct() {
@@ -123,8 +144,11 @@ const Portfolio = (() => {
             html += numCell(h.current_price, "current_price");
             html += numCell(h.exchange_rate, "exchange_rate");
             html += numCell(h.cost_price, "cost_price");
-            html += plCell(h.profit_loss, "profit_loss");
-            html += numCell(h.market_value, "market_value");
+
+            // profit_loss & market_value: auto-computed when shares/price/rate are present
+            const canCalc = h.shares != null && h.current_price != null && h.exchange_rate != null;
+            html += plCell(h.profit_loss, "profit_loss", canCalc && h.cost_price != null);
+            html += numCell(h.market_value, "market_value", canCalc);
             html += pctCell(h.position_pct, "position_pct");
 
             // Category pct (read-only, computed)
@@ -147,14 +171,20 @@ const Portfolio = (() => {
         });
     }
 
-    function numCell(val, field) {
+    function numCell(val, field, readonly) {
         const display = val != null && val !== "" ? val : "";
+        if (readonly) {
+            return `<td class="col-num cell-computed">${display}</td>`;
+        }
         return `<td class="col-num"><input type="text" value="${display}" data-field="${field}" class="cell-input cell-input-num" /></td>`;
     }
 
-    function plCell(val, field) {
+    function plCell(val, field, readonly) {
         const display = val != null && val !== "" ? val : "";
         const cls = val != null ? (val >= 0 ? "pl-pos" : "pl-neg") : "";
+        if (readonly) {
+            return `<td class="col-num cell-computed ${cls}">${display}</td>`;
+        }
         return `<td class="col-num ${cls}"><input type="text" value="${display}" data-field="${field}" class="cell-input cell-input-num" /></td>`;
     }
 
@@ -192,8 +222,10 @@ const Portfolio = (() => {
             holdings[idx][field] = val;
         }
 
-        // Recalc category pct after market_value change
-        if (field === "market_value") {
+        // Recalc computed fields when input fields change
+        const triggerFields = ["shares", "current_price", "exchange_rate", "cost_price", "market_value"];
+        if (triggerFields.includes(field)) {
+            recalcComputed();
             recalcCategoryPct();
             render();
             renderSummary();
