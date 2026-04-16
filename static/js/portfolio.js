@@ -5,6 +5,7 @@ const Portfolio = (() => {
     const P = window.__PREFIX__ || "";
     let holdings = [];
     let pieChart = null;
+    let leverage = parseFloat(localStorage.getItem("portfolio_leverage")) || 35.6;
 
     // ── Default data from screenshot ──
     const DEFAULT_HOLDINGS = [
@@ -301,18 +302,57 @@ const Portfolio = (() => {
         });
     }
 
+    function setLeverage(val) {
+        leverage = val;
+        localStorage.setItem("portfolio_leverage", val);
+        renderSummary();
+    }
+
+    function onLeverageClick() {
+        const display = document.getElementById("leverageDisplay");
+        const currentVal = leverage;
+        display.innerHTML = `<input type="number" id="leverageInput" value="${currentVal}" step="0.1"
+            style="width:70px;font-size:13px;font-weight:700;border:1px solid #4a90d9;border-radius:4px;padding:2px 6px;text-align:right;outline:none;">
+            <span style="font-weight:700;color:#333"> 万</span>`;
+        const input = document.getElementById("leverageInput");
+        input.focus();
+        input.select();
+        const commit = () => {
+            const v = parseFloat(input.value);
+            if (!isNaN(v) && v >= 0) setLeverage(v);
+            else renderSummary();
+        };
+        input.addEventListener("blur", commit);
+        input.addEventListener("keydown", e => {
+            if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+            if (e.key === "Escape") { e.preventDefault(); renderSummary(); }
+        });
+    }
+
     function renderSummary() {
         const container = document.getElementById("portfolioSummary");
         const total = holdings.reduce((s, h) => s + (h.market_value || 0), 0);
+        const net = total - leverage;
         const catTotals = {};
         holdings.forEach(h => {
             const cat = h.category || "其他";
             catTotals[cat] = (catTotals[cat] || 0) + (h.market_value || 0);
         });
 
-        let html = `<div class="summary-stat total-stat">
+        let html = `<div class="summary-stat total-stat" style="background:#e8f0fe;">
             <span class="stat-label">总市值</span>
             <span class="stat-value">${total.toFixed(2)} 万</span>
+        </div>`;
+
+        html += `<div class="summary-stat" style="background:#fff3e0;cursor:pointer;" onclick="Portfolio.onLeverageClick()" title="点击编辑杠杆金额">
+            <span class="stat-label" style="color:#e65100;">杠杆</span>
+            <span class="stat-value" id="leverageDisplay" style="color:#e65100;">−${leverage.toFixed(1)} 万</span>
+            <span style="font-size:11px;color:#bf6900;">✏️</span>
+        </div>`;
+
+        html += `<div class="summary-stat total-stat" style="background:${net >= 0 ? '#e8f5e9' : '#fce4ec'};">
+            <span class="stat-label" style="color:${net >= 0 ? '#2e7d32' : '#c62828'};">净市值</span>
+            <span class="stat-value" style="color:${net >= 0 ? '#2e7d32' : '#c62828'};">${net.toFixed(2)} 万</span>
         </div>`;
 
         Object.entries(catTotals).forEach(([cat, val]) => {
@@ -415,5 +455,5 @@ const Portfolio = (() => {
         init();
     }
 
-    return { addRow, deleteRow, saveAll };
+    return { addRow, deleteRow, saveAll, onLeverageClick };
 })();
