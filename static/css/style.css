@@ -522,6 +522,15 @@ tbody tr:hover { background: #f8f9ff; }
     color: #4a90d9;
     background: #f8f9fb;
 }
+.cell-computed {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    padding: 5px 10px !important;
+    background: #f8f9fb;
+    color: #555;
+    font-weight: 500;
+    font-size: 13px;
+}
 .pl-pos { color: #e74c3c; }
 .pl-neg { color: #27ae60; }
 
