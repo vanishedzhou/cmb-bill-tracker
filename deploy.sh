@@ -42,6 +42,7 @@ case "${1:-run}" in
       -p "$PORT:5002" \
       -v "$DATA_DIR:/app/data" \
       -e DATABASE_PATH=/app/data/cmb_bills.db \
+      -e URL_PREFIX=/cmb \
       "$IMAGE_NAME"
 
     echo "Running at http://localhost:$PORT"
