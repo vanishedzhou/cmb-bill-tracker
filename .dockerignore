@@ -1,0 +1,8 @@
+cmb_bills.db
+server.log
+__pycache__/
+*.pyc
+.DS_Store
+merchants.csv
+reviewed_merchants.csv
+.claude/

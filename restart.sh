@@ -20,6 +20,7 @@ if [ -n "$PID" ]; then
     sleep 1
 fi
 
-echo "Starting server on port 5002..."
+export URL_PREFIX="${URL_PREFIX:-/cmb}"
+echo "Starting server on port 5002 (URL_PREFIX=$URL_PREFIX)..."
 nohup python3 app.py > server.log 2>&1 &
 echo "Server started (PID: $!), log: server.log"
