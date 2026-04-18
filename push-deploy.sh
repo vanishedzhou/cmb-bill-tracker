@@ -39,7 +39,7 @@ rsync -avz --delete \
 
 echo ""
 echo "🔄 Restarting service on server..."
-ssh "$DEPLOY_SERVER" "cd ${DEPLOY_DIR} && bash restart.sh"
+ssh "$DEPLOY_SERVER" "sudo systemctl restart cmb-bill-tracker"
 
 echo ""
 if [ -n "$DEPLOY_URL" ]; then
