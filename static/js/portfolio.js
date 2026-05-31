@@ -112,7 +112,7 @@ const Portfolio = (() => {
     function render() {
         const tbody = document.getElementById("portfolioBody");
         if (!holdings.length) {
-            tbody.innerHTML = '<tr><td colspan="12" class="loading-text">暂无持仓数据，点击「添加行」开始录入</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" class="loading-text">暂无持仓数据，点击「添加行」开始录入</td></tr>';
             return;
         }
 
@@ -163,6 +163,16 @@ const Portfolio = (() => {
             if (isNewCat) {
                 const span = catSpans[cat];
                 html += `<td class="col-num cell-catpct" rowspan="${span}">${h.category_pct != null ? h.category_pct + '%' : ''}</td>`;
+            }
+
+            // 收益率 = (current_price - cost_price) / cost_price * 100
+            const hasReturn = h.current_price != null && h.cost_price != null && h.cost_price !== 0;
+            if (hasReturn) {
+                const returnPct = ((h.current_price - h.cost_price) / h.cost_price * 100).toFixed(2);
+                const cls = parseFloat(returnPct) >= 0 ? "pl-pos" : "pl-neg";
+                html += `<td class="col-num cell-computed ${cls}">${returnPct}%</td>`;
+            } else {
+                html += `<td class="col-num cell-computed"></td>`;
             }
 
             html += `<td class="col-actions">
@@ -424,17 +434,38 @@ const Portfolio = (() => {
         const breakdown = document.getElementById("categoryBreakdown");
         if (!breakdown) return;
         const total = values.reduce((a, b) => a + b, 0);
+
+        // 计算每个大类的加权平均收益率（按市值加权）
+        const catReturns = {};
+        holdings.forEach(h => {
+            const cat = h.category || "其他";
+            if (h.current_price != null && h.cost_price != null && h.cost_price !== 0 && h.market_value != null && h.market_value > 0) {
+                if (!catReturns[cat]) catReturns[cat] = { weightedReturn: 0, totalMV: 0 };
+                const ret = (h.current_price - h.cost_price) / h.cost_price;
+                catReturns[cat].weightedReturn += ret * h.market_value;
+                catReturns[cat].totalMV += h.market_value;
+            }
+        });
+
         let bhtml = "";
         labels.forEach((label, i) => {
             const val = values[i];
             const pct = total > 0 ? (val / total * 100).toFixed(1) : 0;
             const barW = total > 0 ? (val / total * 100) : 0;
+            // 大类加权收益率
+            let returnStr = "";
+            if (catReturns[label] && catReturns[label].totalMV > 0) {
+                const avgReturn = (catReturns[label].weightedReturn / catReturns[label].totalMV * 100).toFixed(2);
+                const retCls = parseFloat(avgReturn) >= 0 ? "pl-pos" : "pl-neg";
+                returnStr = `<span class="breakdown-pct ${retCls}">${avgReturn}%</span>`;
+            }
             bhtml += `<div class="breakdown-item">
                 <div class="breakdown-header">
                     <span class="breakdown-dot" style="background:${colors[i]}"></span>
                     <span class="breakdown-label">${label}</span>
                     <span class="breakdown-value">${val.toFixed(2)}万</span>
                     <span class="breakdown-pct">${pct}%</span>
+                    ${returnStr}
                 </div>
                 <div class="breakdown-bar-bg"><div class="breakdown-bar" style="width:${barW}%;background:${colors[i]}"></div></div>
             </div>`;
