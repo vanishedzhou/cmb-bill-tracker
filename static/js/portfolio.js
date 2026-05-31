@@ -112,7 +112,7 @@ const Portfolio = (() => {
     function render() {
         const tbody = document.getElementById("portfolioBody");
         if (!holdings.length) {
-            tbody.innerHTML = '<tr><td colspan="13" class="loading-text">暂无持仓数据，点击「添加行」开始录入</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="15" class="loading-text">暂无持仓数据，点击「添加行」开始录入</td></tr>';
             return;
         }
 
@@ -163,16 +163,28 @@ const Portfolio = (() => {
             if (isNewCat) {
                 const span = catSpans[cat];
                 html += `<td class="col-num cell-catpct" rowspan="${span}">${h.category_pct != null ? h.category_pct + '%' : ''}</td>`;
-            }
 
-            // 收益率 = (current_price - cost_price) / cost_price * 100
-            const hasReturn = h.current_price != null && h.cost_price != null && h.cost_price !== 0;
-            if (hasReturn) {
-                const returnPct = ((h.current_price - h.cost_price) / h.cost_price * 100).toFixed(2);
-                const cls = parseFloat(returnPct) >= 0 ? "pl-pos" : "pl-neg";
-                html += `<td class="col-num cell-computed ${cls}">${returnPct}%</td>`;
-            } else {
-                html += `<td class="col-num cell-computed"></td>`;
+                const catHoldings = holdings.filter(x => (x.category || "") === cat);
+                const catTotalPL = catHoldings.reduce((s, x) => s + (x.profit_loss || 0), 0);
+                const catTotalMV = catHoldings.reduce((s, x) => s + (x.market_value || 0), 0);
+                const catTotalCost = catTotalMV * 10000 - catTotalPL;
+
+                // 大类总市值（万）
+                html += `<td class="col-num cell-catpct" rowspan="${span}">${catTotalMV.toFixed(2)}</td>`;
+
+                // 大类总盈亏（万）
+                const plWan = (catTotalPL / 10000).toFixed(2);
+                const plCls = catTotalPL >= 0 ? "pl-pos" : "pl-neg";
+                html += `<td class="col-num cell-catpct ${plCls}" rowspan="${span}">${plWan}</td>`;
+
+                // 大类整体收益率
+                if (catTotalCost > 0) {
+                    const catReturn = (catTotalPL / catTotalCost * 100).toFixed(2);
+                    const cls = parseFloat(catReturn) >= 0 ? "pl-pos" : "pl-neg";
+                    html += `<td class="col-num cell-catpct ${cls}" rowspan="${span}">${catReturn}%</td>`;
+                } else {
+                    html += `<td class="col-num cell-catpct" rowspan="${span}"></td>`;
+                }
             }
 
             html += `<td class="col-actions">
@@ -180,6 +192,32 @@ const Portfolio = (() => {
             </td>`;
             html += `</tr>`;
         });
+
+        // ── 合计行 ──
+        const grandTotalPL = holdings.reduce((s, h) => s + (h.profit_loss || 0), 0);
+        const grandTotalMV = holdings.reduce((s, h) => s + (h.market_value || 0), 0);
+        const grandTotalCost = grandTotalMV * 10000 - grandTotalPL;
+        const grandPLWan = (grandTotalPL / 10000).toFixed(2);
+        const grandPLCls = grandTotalPL >= 0 ? "pl-pos" : "pl-neg";
+        let grandReturnCell = "";
+        if (grandTotalCost > 0) {
+            const grandReturn = (grandTotalPL / grandTotalCost * 100).toFixed(2);
+            const cls = parseFloat(grandReturn) >= 0 ? "pl-pos" : "pl-neg";
+            grandReturnCell = `<td class="col-num cell-total ${cls}">${grandReturn}%</td>`;
+        } else {
+            grandReturnCell = `<td class="col-num cell-total"></td>`;
+        }
+        html += `<tr class="total-row">
+            <td class="cell-total" colspan="7" style="text-align:right;font-weight:700;">合计</td>
+            <td class="col-num cell-total ${grandPLCls}">${grandTotalPL.toFixed(2)}</td>
+            <td class="col-num cell-total">${grandTotalMV.toFixed(2)}</td>
+            <td class="col-num cell-total">100%</td>
+            <td class="col-num cell-total">100%</td>
+            <td class="col-num cell-total">${grandTotalMV.toFixed(2)}</td>
+            <td class="col-num cell-total ${grandPLCls}">${grandPLWan}</td>
+            ${grandReturnCell}
+            <td class="col-actions cell-total"></td>
+        </tr>`;
 
         tbody.innerHTML = html;
 
@@ -435,16 +473,15 @@ const Portfolio = (() => {
         if (!breakdown) return;
         const total = values.reduce((a, b) => a + b, 0);
 
-        // 计算每个大类的加权平均收益率（按市值加权）
+        // 计算每个大类的整体收益率
+        // 收益率 = 大类总盈亏(元) / 大类总成本(元) * 100
+        // 大类总成本 = 大类总市值(万)*10000 - 大类总盈亏(元)
         const catReturns = {};
         holdings.forEach(h => {
             const cat = h.category || "其他";
-            if (h.current_price != null && h.cost_price != null && h.cost_price !== 0 && h.market_value != null && h.market_value > 0) {
-                if (!catReturns[cat]) catReturns[cat] = { weightedReturn: 0, totalMV: 0 };
-                const ret = (h.current_price - h.cost_price) / h.cost_price;
-                catReturns[cat].weightedReturn += ret * h.market_value;
-                catReturns[cat].totalMV += h.market_value;
-            }
+            if (!catReturns[cat]) catReturns[cat] = { totalPL: 0, totalMV: 0 };
+            catReturns[cat].totalPL += (h.profit_loss || 0);
+            catReturns[cat].totalMV += (h.market_value || 0);
         });
 
         let bhtml = "";
@@ -452,12 +489,20 @@ const Portfolio = (() => {
             const val = values[i];
             const pct = total > 0 ? (val / total * 100).toFixed(1) : 0;
             const barW = total > 0 ? (val / total * 100) : 0;
-            // 大类加权收益率
+            // 大类整体总盈亏和收益率
+            let plStr = "";
             let returnStr = "";
-            if (catReturns[label] && catReturns[label].totalMV > 0) {
-                const avgReturn = (catReturns[label].weightedReturn / catReturns[label].totalMV * 100).toFixed(2);
-                const retCls = parseFloat(avgReturn) >= 0 ? "pl-pos" : "pl-neg";
-                returnStr = `<span class="breakdown-pct ${retCls}">${avgReturn}%</span>`;
+            if (catReturns[label]) {
+                const { totalPL, totalMV } = catReturns[label];
+                const plWan = (totalPL / 10000).toFixed(2);
+                const plCls = totalPL >= 0 ? "pl-pos" : "pl-neg";
+                plStr = `<span class="breakdown-pct ${plCls}">盈亏 ${plWan}万</span>`;
+                const totalCost = totalMV * 10000 - totalPL;
+                if (totalCost > 0) {
+                    const retPct = (totalPL / totalCost * 100).toFixed(2);
+                    const retCls = parseFloat(retPct) >= 0 ? "pl-pos" : "pl-neg";
+                    returnStr = `<span class="breakdown-pct ${retCls}">收益率 ${retPct}%</span>`;
+                }
             }
             bhtml += `<div class="breakdown-item">
                 <div class="breakdown-header">
@@ -465,6 +510,7 @@ const Portfolio = (() => {
                     <span class="breakdown-label">${label}</span>
                     <span class="breakdown-value">${val.toFixed(2)}万</span>
                     <span class="breakdown-pct">${pct}%</span>
+                    ${plStr}
                     ${returnStr}
                 </div>
                 <div class="breakdown-bar-bg"><div class="breakdown-bar" style="width:${barW}%;background:${colors[i]}"></div></div>
